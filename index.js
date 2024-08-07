@@ -33,32 +33,26 @@ const client = new MongoClient(uri, {
 });
 
 // middlewares
-const logger = async(req, res, next) => {
+const logger = async (req, res, next) => {
     console.log('called', req.get('host'), req.originalUrl)
     next()
 }
-const verifyToken = async(req, res, next) => {
+const verifyToken = async (req, res, next) => {
     const token = req.cookies?.token
-    console.log('value of token in middleware', token)
     if (!token) {
-        return res.status(401).send({ message: 'not authorized' })
+        return res.status(401).send({ message: 'unauthorized' })
     }
-    jwt.verify(token,process.env.ACCESS_TOKEN_SECRET,(err,decoded)=>{
-        // error
-        if(err){
-            console.log(err)
-            return res.status(401).send({message:'unauthorized'})
+    jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
+        if (err) {
+            return res.status(401).send({ message: 'unauthorized' })
         }
-
-        // if token is valid it would be decoded
-        
-        console.log('value in the token',decoded)
-        req.user =decoded
+        req.user = decoded
         next()
     })
 
 
 }
+
 
 
 async function run() {
@@ -89,13 +83,13 @@ async function run() {
 
 
         // services related api
-        app.get('/services',  async (req, res) => {
+        app.get('/services', async (req, res) => {
             const cursor = servicesCollection.find()
             const result = await cursor.toArray()
             res.send(result)
         })
 
-        app.get('/services/:id',logger, async (req, res) => {
+        app.get('/services/:id', logger, async (req, res) => {
             const id = req.params.id
             const query = { _id: new ObjectId(id) };
             const options = {
@@ -107,10 +101,13 @@ async function run() {
             res.send(result)
         })
 
-        app.get('/bookings',logger,verifyToken,async(req, res) => {
+        app.get('/bookings', logger, verifyToken, async (req, res) => {
             console.log(req.query.email);
             // console.log('tik tok token', req.cookies.token)
-           console.log('user in the valid token',req.user)
+            console.log('user in the valid token', req.user)
+            if (req.query.email !== req.user.email) {
+                return res.status(403).send({ message: 'forbidden access' })
+            }
             let query = {}
             if (req.query?.email) {
                 query = { email: req.query.email }
@@ -119,7 +116,7 @@ async function run() {
             res.send(result)
         })
 
-        app.post('/bookings',async(req, res) => {
+        app.post('/bookings', async (req, res) => {
             const booking = req.body
             // console.log('bbb', req.cookies.token)
             const result = await bookingCollection.insertOne(booking)
@@ -127,7 +124,7 @@ async function run() {
 
             // console.log(booking)
         })
-        app.get("/bookings/:id",logger,async(req, res) => {
+        app.get("/bookings/:id", logger, async (req, res) => {
             const id = req.params.id;
             const query = new ObjectId(id)
             const result = await bookingCollection.find(query).toArray()
