@@ -28,4 +28,23 @@
  * 1.to send cookies the client make sure you are added credential:true for the api call using axios
  * 
  * 2.using cookie parser as middleware
- *  */ 
+ *  */
+
+/** ________________________
+ * 
+ * MAKE API SECURE
+ * _________________________
+ * The person who should have
+ * 
+ * concept:
+ * 1.assign two token for each person(access token,refresh token)
+ * 2.access token contains: user identification(email,role, etc) .valid for a shorter duration
+ * 3. refresh token is used :to recreate an access token that was expired
+ * 4. if refresh token is invalid then logout the user
+ * 5.
+ * 
+ * 
+ * */
+/**
+ * 
+ * */ 

@@ -10,14 +10,23 @@ const port = process.env.PORT || 5000;
 
 // middleware
 
+// app.use(cors({
+//     origin: ['http://localhost:5173'],
+//     credentials: true
+// }
+// ));
 app.use(cors({
-    origin: ['http://localhost:5173'],
-    credentials: true
-}
-));
+    origin: [
+        // 'http://localhost:5173'
+        ' cars-doctor-d8edc.web.app',
+        'cars-doctor-d8edc.firebaseapp.com'
+
+    ], credentials: true
+}))
 
 app.use(express.json())
 app.use(cookieParser())
+
 
 
 
@@ -33,24 +42,25 @@ const client = new MongoClient(uri, {
 });
 
 // middlewares
-const logger = async (req, res, next) => {
-    console.log('called', req.get('host'), req.originalUrl)
+const logger = (req, res, next) => {
+    console.log('log:info', req.method, req.url)
     next()
 }
-const verifyToken = async (req, res, next) => {
-    const token = req.cookies?.token
-    if (!token) {
-        return res.status(401).send({ message: 'unauthorized' })
+
+const verifyToken =(req,res,next)=>{
+    const token = req?.cookies?.token
+    if(!token){
+        return res.status(401).send({message:'unauthorized'})
     }
-    jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
-        if (err) {
-            return res.status(401).send({ message: 'unauthorized' })
+    jwt.verify(token,process.env.ACCESS_TOKEN_SECRET,(err,decoded)=>{
+        if(err){
+            return res.status(401).send({message:'unauthorized'})
         }
         req.user = decoded
         next()
     })
 
-
+    
 }
 
 
@@ -64,22 +74,33 @@ async function run() {
         const servicesCollection = client.db('carDoctor').collection("services")
         const bookingCollection = client.db('carDoctor').collection('bookings')
 
-        //    auth related api
-        app.post("/jwt", logger, async (req, res) => {
+        //    AUTH RELATED API
+
+        app.post('/jwt', async (req, res) => {
             const user = req.body
+            console.log(user)
             const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '1h' })
             console.log(token)
-
             res
                 .cookie('token', token, {
                     httpOnly: true,
-                    secure: false,
+                    secure: true,
+                    sameSite:true
+                    
 
                 })
                 .send({ success: true })
-
-
         })
+        app.post('/logout', async (req, res) => {
+            const user = req.body;
+            console.log('logging out', user)
+            res.clearCookie('token', {
+                maxAge: 0
+            })
+                .send({ success: true })
+        })
+
+
 
 
         // services related api
@@ -89,7 +110,7 @@ async function run() {
             res.send(result)
         })
 
-        app.get('/services/:id', logger, async (req, res) => {
+        app.get('/services/:id', async (req, res) => {
             const id = req.params.id
             const query = { _id: new ObjectId(id) };
             const options = {
@@ -101,13 +122,13 @@ async function run() {
             res.send(result)
         })
 
-        app.get('/bookings', logger, verifyToken, async (req, res) => {
+        app.get('/bookings', logger,verifyToken, async (req, res) => {
             console.log(req.query.email);
-            // console.log('tik tok token', req.cookies.token)
-            console.log('user in the valid token', req.user)
-            if (req.query.email !== req.user.email) {
-                return res.status(403).send({ message: 'forbidden access' })
+            console.log('verified token in user', req.user)
+            if(req.query.email !== req?.user?.email){
+                return res.status(403).send({message:'forbidden access'})
             }
+
             let query = {}
             if (req.query?.email) {
                 query = { email: req.query.email }
@@ -124,7 +145,7 @@ async function run() {
 
             // console.log(booking)
         })
-        app.get("/bookings/:id", logger, async (req, res) => {
+        app.get("/bookings/:id", async (req, res) => {
             const id = req.params.id;
             const query = new ObjectId(id)
             const result = await bookingCollection.find(query).toArray()
@@ -151,10 +172,6 @@ async function run() {
             const result = await bookingCollection.updateOne(filter, updateDoc)
             res.send(result)
         })
-
-
-
-
 
         console.log("Pinged your deployment. You successfully connected to MongoDB!");
     } finally {
